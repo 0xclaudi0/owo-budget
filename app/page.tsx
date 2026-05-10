@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { WeeklyBudget, Transaction, Investment, BudgetCategory, formatNgn, formatUsd, formatWeekLabel, getWeekStart } from '@/lib/types'
 import BudgetRing from '@/components/BudgetRing'
+import WeeklyNotes from '@/components/WeeklyNotes'
 
 async function signOut() {
   'use server'
@@ -136,8 +137,13 @@ export default async function DashboardPage() {
               </div>
             )}
 
+            {/* Weekly note */}
+            <div className="animate-fade-up stagger-4">
+              <WeeklyNotes budgetId={budget.id} initialNotes={budget.notes || ''} />
+            </div>
+
             {/* Quick actions */}
-            <div className="animate-fade-up stagger-4" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: '1.25rem' }}>
+            <div className="animate-fade-up stagger-5" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: '1.25rem' }}>
               {[
                 { href: '/transactions', icon: '+', label: 'Log expense', sub: 'Track spending', color: 'var(--teal)' },
                 { href: '/investments', icon: '↑', label: 'Log investment', sub: 'Growth bucket', color: 'var(--sage)' },

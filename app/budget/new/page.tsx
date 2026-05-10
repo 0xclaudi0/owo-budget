@@ -15,6 +15,7 @@ export default function NewBudgetPage() {
   const [rateLoading, setRateLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
+  const [notes, setNotes] = useState('')
 
   const weekStart = getWeekStart().toISOString().split('T')[0]
   const parsedIncome = parseFloat(incomeUsd) || 0
@@ -44,7 +45,7 @@ export default function NewBudgetPage() {
     const calc = calcBudget(parsedIncome, method, parsedRate)
     const { error: err } = await supabase.from('weekly_budgets').upsert({
       user_id: user.id, week_start: weekStart, income_usd: parsedIncome,
-      withdrawal_method: method, exchange_rate: parsedRate, ...calc,
+      withdrawal_method: method, exchange_rate: parsedRate, notes, ...calc,
     }, { onConflict: 'user_id,week_start' })
 
     if (err) { setError(err.message); setSaving(false) } else { router.push('/') }
@@ -183,6 +184,27 @@ export default function NewBudgetPage() {
               </div>
             </div>
           )}
+
+          {/* Notes */}
+          <div className="animate-fade-up stagger-4 card" style={{ padding: '1.25rem' }}>
+            <label style={{ fontSize: 11, color: 'var(--muted)', fontFamily: 'var(--font-mono)', letterSpacing: '0.06em', textTransform: 'uppercase', display: 'block', marginBottom: 10 }}>
+              Weekly note <span style={{ color: 'var(--dimmed)' }}>(optional)</span>
+            </label>
+            <textarea
+              value={notes}
+              onChange={e => setNotes(e.target.value)}
+              placeholder="Anything unusual this week? Unexpected bills, couldn't hit savings goal, etc."
+              rows={3}
+              style={{
+                width: '100%', background: 'var(--bg-input)', border: '1px solid var(--gold-border)',
+                borderRadius: '0.875rem', padding: '0.75rem 1rem', color: 'var(--cream)',
+                fontFamily: 'var(--font-body)', fontSize: 14, lineHeight: 1.6, resize: 'none',
+                outline: 'none', boxSizing: 'border-box', transition: 'border-color 0.2s',
+              }}
+              onFocus={e => (e.currentTarget.style.borderColor = 'var(--gold)')}
+              onBlur={e => (e.currentTarget.style.borderColor = 'var(--gold-border)')}
+            />
+          </div>
 
           {error && (
             <div style={{ background: 'rgba(176,80,80,0.1)', border: '1px solid rgba(176,80,80,0.3)',

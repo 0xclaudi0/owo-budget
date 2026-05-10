@@ -18,6 +18,7 @@ export interface WeeklyBudget {
   growth_ngn: number
   stability_ngn: number
   reward_ngn: number
+  notes: string
   created_at: string
 }
 

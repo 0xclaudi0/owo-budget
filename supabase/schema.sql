@@ -14,6 +14,7 @@ create table if not exists weekly_budgets (
   growth_ngn numeric(16,2) not null,
   stability_ngn numeric(16,2) not null,
   reward_ngn numeric(16,2) not null,
+  notes text not null default '',
   created_at timestamptz default now()
 );
 

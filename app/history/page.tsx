@@ -2,6 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import { WeeklyBudget, Transaction, Investment, BudgetCategory, CATEGORY_CONFIG, formatNgn, formatUsd, formatWeekLabel, getWeekStart } from '@/lib/types'
 import DeleteBudgetButton from '@/components/DeleteBudgetButton'
+import WeeklyNotes from '@/components/WeeklyNotes'
 
 export default async function HistoryPage() {
   const supabase = await createClient()
@@ -126,6 +127,9 @@ export default async function HistoryPage() {
                     )
                   })}
                 </div>
+
+                {/* Notes */}
+                <WeeklyNotes budgetId={budget.id} initialNotes={budget.notes || ''} />
 
                 {/* Summary footer */}
                 <div style={{ display: 'flex', gap: 20, borderTop: '1px solid var(--gold-border)', paddingTop: 12, flexWrap: 'wrap' }}>
