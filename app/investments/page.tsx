@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Investment, WeeklyBudget, formatNgn, getWeekStart } from '@/lib/types'
-import { Plus, Trash2, TrendingUp } from 'lucide-react'
+import Link from 'next/link'
 
 const PLATFORM_SUGGESTIONS = ['Bamboo', 'Bitcoin', 'Ethereum', 'Crypto', 'Real estate', 'Other']
 
@@ -26,12 +26,10 @@ export default function InvestmentsPage() {
     const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
-
     const [{ data: b }, { data: inv }] = await Promise.all([
       supabase.from('weekly_budgets').select('*').eq('user_id', user.id).eq('week_start', weekStart).maybeSingle(),
       supabase.from('investments').select('*').eq('user_id', user.id).gte('date', weekStart).order('date', { ascending: false }),
     ])
-
     setBudget(b as WeeklyBudget | null)
     setInvestments((inv || []) as Investment[])
     setLoading(false)
@@ -40,10 +38,11 @@ export default function InvestmentsPage() {
   useEffect(() => { load() }, [load])
 
   const effectivePlatform = platform === 'Other' ? customPlatform : platform
-
   const totalInvested = investments.reduce((a, i) => a + i.amount_ngn, 0)
   const growthAllocated = budget?.growth_ngn ?? 0
   const remaining = Math.max(growthAllocated - totalInvested, 0)
+  const pct = growthAllocated > 0 ? Math.min((totalInvested / growthAllocated) * 100, 100) : 0
+  const over = totalInvested > growthAllocated
 
   async function handleAdd(e: React.FormEvent) {
     e.preventDefault()
@@ -52,20 +51,11 @@ export default function InvestmentsPage() {
     const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return
-
     await supabase.from('investments').insert({
-      user_id: user.id,
-      budget_id: budget.id,
-      platform: effectivePlatform,
-      amount_ngn: parseFloat(amount),
-      notes,
-      date,
+      user_id: user.id, budget_id: budget.id, platform: effectivePlatform,
+      amount_ngn: parseFloat(amount), notes, date,
     })
-
-    setAmount('')
-    setNotes('')
-    setShowForm(false)
-    setSaving(false)
+    setAmount(''); setNotes(''); setShowForm(false); setSaving(false)
     load()
   }
 
@@ -75,161 +65,147 @@ export default function InvestmentsPage() {
     setInvestments(prev => prev.filter(i => i.id !== id))
   }
 
-  if (loading) return <div className="min-h-screen bg-gray-950 flex items-center justify-center"><div className="text-gray-400">Loading…</div></div>
+  if (loading) return (
+    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--muted)', letterSpacing: '0.08em' }}>LOADING…</span>
+    </div>
+  )
 
   return (
-    <div className="min-h-screen bg-gray-950 pb-24">
-      <div className="max-w-lg mx-auto px-4 pt-6">
-        <div className="flex justify-between items-center mb-6">
-          <h1 className="text-xl font-bold text-white">Investments</h1>
+    <div className="min-h-screen pb-28">
+      <div className="max-w-lg mx-auto px-4 pt-8">
+
+        {/* Header */}
+        <div className="animate-fade-up flex justify-between items-center mb-8">
+          <div>
+            <p style={{ fontSize: 11, color: 'var(--muted)', fontFamily: 'var(--font-mono)', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 4 }}>Growth · 25%</p>
+            <h1 style={{ fontFamily: 'var(--font-cormorant)', fontSize: 26, fontWeight: 400, color: 'var(--cream)' }}>Investments</h1>
+          </div>
           {budget && (
-            <button
-              onClick={() => setShowForm(!showForm)}
-              className="bg-emerald-500 hover:bg-emerald-600 text-white p-2 rounded-xl transition-colors"
-            >
-              <Plus size={20} />
+            <button onClick={() => setShowForm(!showForm)} className="btn-gold" style={{ padding: '0.6rem 1.2rem', fontSize: 13 }}>
+              {showForm ? '✕ Cancel' : '+ Log'}
             </button>
           )}
         </div>
 
         {!budget && (
-          <div className="text-center py-12 text-gray-400">
-            <p>No budget for this week yet.</p>
-            <a href="/budget/new" className="text-emerald-400 mt-2 inline-block">Create one →</a>
+          <div className="animate-fade-up card" style={{ padding: '2rem', textAlign: 'center' }}>
+            <p style={{ fontFamily: 'var(--font-cormorant)', fontSize: 20, color: 'var(--cream)', marginBottom: 8 }}>No budget this week</p>
+            <Link href="/budget/new" style={{ color: 'var(--gold)', fontFamily: 'var(--font-body)', fontSize: 13, textDecoration: 'none' }}>Create one →</Link>
           </div>
         )}
 
+        {/* Growth bucket summary */}
         {budget && (
-          <div className="bg-gradient-to-br from-emerald-600/30 to-emerald-900/30 border border-emerald-800 rounded-2xl p-4 mb-5">
-            <div className="flex items-center gap-2 mb-3">
-              <TrendingUp size={16} className="text-emerald-400" />
-              <span className="text-emerald-300 font-semibold text-sm">Growth bucket (25%)</span>
+          <div className="animate-fade-up stagger-1"
+            style={{ background: 'linear-gradient(145deg, rgba(90,155,116,0.12) 0%, rgba(90,155,116,0.04) 100%)',
+              border: '1px solid rgba(90,155,116,0.25)', borderRadius: '1.25rem', padding: '1.25rem', marginBottom: '1.25rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
+              {[
+                { label: 'Allocated', value: formatNgn(growthAllocated), color: 'var(--cream)' },
+                { label: 'Invested', value: formatNgn(totalInvested), color: 'var(--sage)' },
+                { label: over ? 'Over by' : 'Remaining', value: over ? formatNgn(totalInvested - growthAllocated) : formatNgn(remaining), color: over ? 'var(--err)' : 'var(--cream-dim)' },
+              ].map(s => (
+                <div key={s.label}>
+                  <p style={{ fontSize: 10, color: 'var(--muted)', fontFamily: 'var(--font-body)', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 4 }}>{s.label}</p>
+                  <p style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: s.color, fontWeight: 500 }}>{s.value}</p>
+                </div>
+              ))}
             </div>
-            <div className="flex gap-6">
-              <div>
-                <p className="text-gray-400 text-xs">Allocated</p>
-                <p className="text-white font-bold">{formatNgn(growthAllocated)}</p>
-              </div>
-              <div>
-                <p className="text-gray-400 text-xs">Invested</p>
-                <p className="text-emerald-400 font-bold">{formatNgn(totalInvested)}</p>
-              </div>
-              <div>
-                <p className="text-gray-400 text-xs">Remaining</p>
-                <p className="text-white font-bold">{formatNgn(remaining)}</p>
-              </div>
-            </div>
-            <div className="h-2 bg-gray-700 rounded-full mt-3 overflow-hidden">
-              <div
-                className="h-full bg-emerald-500 rounded-full transition-all"
-                style={{ width: growthAllocated > 0 ? `${Math.min((totalInvested / growthAllocated) * 100, 100)}%` : '0%' }}
-              />
+            <div className="progress-track">
+              <div className="progress-bar" style={{ width: `${pct}%`, background: over ? 'var(--err)' : 'var(--sage)' }} />
             </div>
           </div>
         )}
 
+        {/* Log form */}
         {budget && showForm && (
-          <form onSubmit={handleAdd} className="bg-gray-800 rounded-2xl p-4 mb-5 space-y-4">
-            <h3 className="text-white font-semibold">Log investment</h3>
+          <form onSubmit={handleAdd} className="animate-slide-down card" style={{ padding: '1.25rem', marginBottom: '1.25rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            <p style={{ fontFamily: 'var(--font-cormorant)', fontSize: 20, color: 'var(--cream)' }}>Log investment</p>
 
+            {/* Platform pills */}
             <div>
-              <label className="text-xs text-gray-400 mb-2 block">Platform</label>
-              <div className="flex flex-wrap gap-2 mb-2">
+              <p style={{ fontSize: 11, color: 'var(--muted)', fontFamily: 'var(--font-mono)', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 8 }}>Platform</p>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 8 }}>
                 {PLATFORM_SUGGESTIONS.map(p => (
-                  <button
-                    key={p}
-                    type="button"
-                    onClick={() => setPlatform(p)}
-                    className={`px-3 py-1.5 rounded-full text-sm font-medium border transition-colors ${
-                      platform === p
-                        ? 'border-emerald-500 text-emerald-400 bg-emerald-500/10'
-                        : 'border-gray-600 text-gray-300 hover:border-gray-500'
-                    }`}
-                  >
+                  <button key={p} type="button" onClick={() => setPlatform(p)}
+                    style={{
+                      padding: '6px 14px', borderRadius: 99, fontSize: 13, fontFamily: 'var(--font-body)',
+                      border: `1px solid ${platform === p ? 'var(--gold)' : 'var(--gold-border)'}`,
+                      background: platform === p ? 'var(--gold-dim)' : 'transparent',
+                      color: platform === p ? 'var(--gold)' : 'var(--cream-dim)',
+                      cursor: 'pointer', transition: 'all 0.15s',
+                    }}>
                     {p}
                   </button>
                 ))}
               </div>
               {platform === 'Other' && (
-                <input
-                  type="text"
-                  required
-                  value={customPlatform}
-                  onChange={e => setCustomPlatform(e.target.value)}
+                <input type="text" required value={customPlatform} onChange={e => setCustomPlatform(e.target.value)}
                   placeholder="Platform name (e.g. Cardano, Gold)"
-                  className="w-full bg-gray-700 border border-gray-600 text-white rounded-xl px-4 py-3 focus:outline-none focus:border-emerald-500"
-                />
+                  className="input-field" style={{ marginTop: 4 }} />
               )}
             </div>
 
+            {/* Amount */}
             <div>
-              <label className="text-xs text-gray-400 mb-1 block">Amount (₦)</label>
-              <input
-                type="number"
-                min="1"
-                step="1"
-                required
-                value={amount}
-                onChange={e => setAmount(e.target.value)}
-                placeholder="0"
-                className="w-full bg-gray-700 border border-gray-600 text-white rounded-xl px-4 py-3 focus:outline-none focus:border-emerald-500 text-lg font-bold"
-              />
+              <p style={{ fontSize: 11, color: 'var(--muted)', fontFamily: 'var(--font-mono)', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 8 }}>Amount (₦)</p>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, background: 'var(--bg-input)', borderRadius: '0.875rem', padding: '0.875rem 1rem', border: '1px solid var(--gold-border)' }}>
+                <span style={{ fontFamily: 'var(--font-cormorant)', fontSize: 22, color: 'var(--muted)' }}>₦</span>
+                <input type="number" min="1" step="1" required value={amount} onChange={e => setAmount(e.target.value)}
+                  placeholder="0"
+                  style={{ background: 'transparent', border: 'none', outline: 'none', fontFamily: 'var(--font-cormorant)', fontSize: 32, fontWeight: 300, color: 'var(--cream)', width: '100%' }} />
+              </div>
             </div>
 
+            {/* Notes */}
             <div>
-              <label className="text-xs text-gray-400 mb-1 block">Notes (optional)</label>
-              <input
-                type="text"
-                value={notes}
-                onChange={e => setNotes(e.target.value)}
-                placeholder="e.g. S&P 500 index fund"
-                className="w-full bg-gray-700 border border-gray-600 text-white rounded-xl px-4 py-3 focus:outline-none focus:border-emerald-500"
-              />
+              <p style={{ fontSize: 11, color: 'var(--muted)', fontFamily: 'var(--font-mono)', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 8 }}>Notes (optional)</p>
+              <input type="text" value={notes} onChange={e => setNotes(e.target.value)}
+                placeholder="e.g. S&P 500 index, quarterly DCA" className="input-field" />
             </div>
 
+            {/* Date */}
             <div>
-              <label className="text-xs text-gray-400 mb-1 block">Date</label>
-              <input
-                type="date"
-                required
-                value={date}
-                onChange={e => setDate(e.target.value)}
-                className="w-full bg-gray-700 border border-gray-600 text-white rounded-xl px-4 py-3 focus:outline-none focus:border-emerald-500"
-              />
+              <p style={{ fontSize: 11, color: 'var(--muted)', fontFamily: 'var(--font-mono)', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 8 }}>Date</p>
+              <input type="date" required value={date} onChange={e => setDate(e.target.value)} className="input-field" />
             </div>
 
-            <div className="flex gap-2">
-              <button type="button" onClick={() => setShowForm(false)} className="flex-1 bg-gray-700 text-white py-3 rounded-xl font-medium">
-                Cancel
-              </button>
-              <button type="submit" disabled={saving || !effectivePlatform} className="flex-1 bg-emerald-500 hover:bg-emerald-600 text-white py-3 rounded-xl font-semibold disabled:opacity-50">
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+              <button type="button" onClick={() => setShowForm(false)} className="btn-ghost" style={{ padding: '0.875rem', fontSize: 14 }}>Cancel</button>
+              <button type="submit" disabled={saving || !effectivePlatform} className="btn-gold" style={{ padding: '0.875rem', fontSize: 14 }}>
                 {saving ? 'Saving…' : 'Log'}
               </button>
             </div>
           </form>
         )}
 
+        {/* Investment list */}
         {investments.length === 0 && budget ? (
-          <p className="text-center text-gray-500 py-8">No investments logged this week.</p>
+          <div className="animate-fade-up" style={{ textAlign: 'center', paddingBlock: '3rem' }}>
+            <p style={{ fontFamily: 'var(--font-cormorant)', fontSize: 20, color: 'var(--muted)', fontStyle: 'italic' }}>Nothing invested yet</p>
+          </div>
         ) : (
-          <div className="space-y-2">
-            {investments.map(inv => (
-              <div key={inv.id} className="bg-gray-800 rounded-2xl px-4 py-3 flex items-center gap-3">
-                <div className="bg-emerald-500/20 p-2 rounded-xl flex-shrink-0">
-                  <TrendingUp size={16} className="text-emerald-400" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-white font-medium text-sm">{inv.platform}</p>
-                  <p className="text-gray-400 text-xs">
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {investments.map((inv, i) => (
+              <div key={inv.id} className={`animate-fade-up card stagger-${Math.min(i + 1, 5)}`}
+                style={{ padding: '0.875rem 1rem', display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div style={{ width: 3, height: 36, borderRadius: 99, background: 'var(--sage)', flexShrink: 0 }} />
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p style={{ fontFamily: 'var(--font-body)', fontSize: 14, color: 'var(--cream)', fontWeight: 500 }}>{inv.platform}</p>
+                  <p style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--muted)', marginTop: 2 }}>
                     {new Date(inv.date).toLocaleDateString('en-NG', { day: 'numeric', month: 'short' })}
                     {inv.notes ? ` · ${inv.notes}` : ''}
                   </p>
                 </div>
-                <div className="text-right">
-                  <p className="text-emerald-400 font-semibold">{formatNgn(inv.amount_ngn)}</p>
-                </div>
-                <button onClick={() => handleDelete(inv.id)} className="text-gray-600 hover:text-red-400 transition-colors ml-1 flex-shrink-0">
-                  <Trash2 size={16} />
+                <p style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: 'var(--sage)', fontWeight: 500, flexShrink: 0 }}>
+                  {formatNgn(inv.amount_ngn)}
+                </p>
+                <button onClick={() => handleDelete(inv.id)}
+                  style={{ color: 'var(--dimmed)', background: 'none', border: 'none', cursor: 'pointer', padding: '4px', fontSize: 16, lineHeight: 1, flexShrink: 0, transition: 'color 0.2s' }}
+                  onMouseEnter={e => (e.currentTarget.style.color = 'var(--err)')}
+                  onMouseLeave={e => (e.currentTarget.style.color = 'var(--dimmed)')}>
+                  ×
                 </button>
               </div>
             ))}

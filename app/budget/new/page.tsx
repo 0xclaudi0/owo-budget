@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { WithdrawalMethod, calcBudget, formatNgn, formatUsd, getWeekStart, formatWeekLabel } from '@/lib/types'
-import { RefreshCw, ArrowLeft } from 'lucide-react'
 import Link from 'next/link'
 
 export default function NewBudgetPage() {
@@ -29,10 +28,7 @@ export default function NewBudgetPage() {
     try {
       const res = await fetch('/api/rate')
       const data = await res.json()
-      if (data.rate) {
-        setMarketRate(data.rate)
-        if (!rate) setRate(Math.round(data.rate).toString())
-      }
+      if (data.rate) { setMarketRate(data.rate); if (!rate) setRate(Math.round(data.rate).toString()) }
     } catch {}
     setRateLoading(false)
   }
@@ -40,155 +36,148 @@ export default function NewBudgetPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!parsedIncome || !parsedRate) return
-    setSaving(true)
-    setError('')
-
+    setSaving(true); setError('')
     const supabase = createClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) { router.push('/login'); return }
 
     const calc = calcBudget(parsedIncome, method, parsedRate)
-
     const { error: err } = await supabase.from('weekly_budgets').upsert({
-      user_id: user.id,
-      week_start: weekStart,
-      income_usd: parsedIncome,
-      withdrawal_method: method,
-      exchange_rate: parsedRate,
-      ...calc,
+      user_id: user.id, week_start: weekStart, income_usd: parsedIncome,
+      withdrawal_method: method, exchange_rate: parsedRate, ...calc,
     }, { onConflict: 'user_id,week_start' })
 
-    if (err) {
-      setError(err.message)
-      setSaving(false)
-    } else {
-      router.push('/')
-    }
+    if (err) { setError(err.message); setSaving(false) } else { router.push('/') }
   }
 
+  const methodOptions = [
+    { value: 'payoneer_naira' as WithdrawalMethod, label: 'Payoneer → Naira', sub: '4.5% fee deducted automatically' },
+    { value: 'raenest_usd' as WithdrawalMethod, label: 'Raenest USD', sub: 'Enter the rate you see in-app' },
+  ]
+
+  const categories = preview ? [
+    { label: 'Essentials', pct: '50%', amount: preview.essentials_ngn, color: 'var(--teal)' },
+    { label: 'Growth', pct: '25%', amount: preview.growth_ngn, color: 'var(--sage)' },
+    { label: 'Stability', pct: '15%', amount: preview.stability_ngn, color: 'var(--amber)' },
+    { label: 'Reward', pct: '10%', amount: preview.reward_ngn, color: 'var(--mauve)' },
+  ] : []
+
   return (
-    <div className="min-h-screen bg-gray-950 pb-24">
-      <div className="max-w-lg mx-auto px-4 pt-6">
-        <div className="flex items-center gap-3 mb-6">
-          <Link href="/" className="text-gray-400 hover:text-white transition-colors">
-            <ArrowLeft size={22} />
-          </Link>
+    <div className="min-h-screen pb-28">
+      <div style={{ position: 'fixed', inset: 0, pointerEvents: 'none', zIndex: 0,
+        background: 'radial-gradient(ellipse 60% 30% at 50% 0%, rgba(200,150,90,0.05) 0%, transparent 70%)' }} />
+
+      <div className="relative z-10 max-w-lg mx-auto px-4 pt-8">
+
+        {/* Header */}
+        <div className="animate-fade-up flex items-center gap-4 mb-8">
+          <Link href="/" style={{ color: 'var(--muted)', textDecoration: 'none', fontSize: 20, lineHeight: 1 }}>←</Link>
           <div>
-            <h1 className="text-xl font-bold text-white">New Budget</h1>
-            <p className="text-gray-400 text-sm">{formatWeekLabel(weekStart)}</p>
+            <p style={{ fontSize: 11, color: 'var(--muted)', fontFamily: 'var(--font-mono)', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 2 }}>
+              New Budget
+            </p>
+            <h1 style={{ fontFamily: 'var(--font-cormorant)', fontSize: 24, fontWeight: 400, color: 'var(--cream)' }}>
+              {formatWeekLabel(weekStart)}
+            </h1>
           </div>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-5">
-          {/* Income */}
-          <div className="bg-gray-800 rounded-2xl p-4">
-            <label className="block text-sm font-medium text-gray-300 mb-2">Weekly income (USD)</label>
-            <div className="flex items-center gap-2">
-              <span className="text-gray-400 text-lg">$</span>
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+
+          {/* Income input */}
+          <div className="animate-fade-up stagger-1 card" style={{ padding: '1.25rem' }}>
+            <label style={{ fontSize: 11, color: 'var(--muted)', fontFamily: 'var(--font-mono)', letterSpacing: '0.06em', textTransform: 'uppercase', display: 'block', marginBottom: 12 }}>
+              Weekly income (USD)
+            </label>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+              <span style={{ fontFamily: 'var(--font-cormorant)', fontSize: 28, color: 'var(--muted)', fontWeight: 300 }}>$</span>
               <input
-                type="number"
-                min="0"
-                step="0.01"
-                required
-                value={incomeUsd}
-                onChange={e => setIncomeUsd(e.target.value)}
+                type="number" min="0" step="0.01" required
+                value={incomeUsd} onChange={e => setIncomeUsd(e.target.value)}
                 placeholder="0.00"
-                className="flex-1 bg-transparent text-white text-2xl font-bold focus:outline-none placeholder-gray-600"
+                style={{ background: 'transparent', border: 'none', outline: 'none', fontFamily: 'var(--font-cormorant)',
+                  fontSize: 42, fontWeight: 300, color: 'var(--cream)', width: '100%', letterSpacing: '-0.01em' }}
               />
             </div>
           </div>
 
           {/* Withdrawal method */}
-          <div className="bg-gray-800 rounded-2xl p-4">
-            <label className="block text-sm font-medium text-gray-300 mb-3">How are you withdrawing?</label>
-            <div className="grid grid-cols-2 gap-2">
-              {([
-                { value: 'payoneer_naira', label: 'Payoneer → Naira', sub: '4.5% fee deducted' },
-                { value: 'raenest_usd', label: 'Raenest USD', sub: 'Enter your rate below' },
-              ] as { value: WithdrawalMethod; label: string; sub: string }[]).map(opt => (
-                <button
-                  key={opt.value}
-                  type="button"
-                  onClick={() => setMethod(opt.value)}
-                  className={`p-3 rounded-xl border-2 text-left transition-colors ${
-                    method === opt.value
-                      ? 'border-emerald-500 bg-emerald-500/10'
-                      : 'border-gray-700 hover:border-gray-600'
-                  }`}
-                >
-                  <p className={`font-semibold text-sm ${method === opt.value ? 'text-emerald-400' : 'text-white'}`}>
+          <div className="animate-fade-up stagger-2 card" style={{ padding: '1.25rem' }}>
+            <label style={{ fontSize: 11, color: 'var(--muted)', fontFamily: 'var(--font-mono)', letterSpacing: '0.06em', textTransform: 'uppercase', display: 'block', marginBottom: 12 }}>
+              Withdrawal method
+            </label>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+              {methodOptions.map(opt => (
+                <button key={opt.value} type="button" onClick={() => setMethod(opt.value)}
+                  className={`pill-option ${method === opt.value ? 'active' : ''}`}>
+                  <p style={{ fontFamily: 'var(--font-body)', fontSize: 13, fontWeight: 500,
+                    color: method === opt.value ? 'var(--gold)' : 'var(--cream)', marginBottom: 2 }}>
                     {opt.label}
                   </p>
-                  <p className="text-gray-400 text-xs mt-0.5">{opt.sub}</p>
+                  <p style={{ fontFamily: 'var(--font-body)', fontSize: 11, color: 'var(--muted)' }}>{opt.sub}</p>
                 </button>
               ))}
             </div>
           </div>
 
           {/* Exchange rate */}
-          <div className="bg-gray-800 rounded-2xl p-4">
-            <div className="flex justify-between items-center mb-2">
-              <label className="text-sm font-medium text-gray-300">
-                {method === 'payoneer_naira' ? 'Payoneer rate (₦ per $1)' : 'Raenest rate (₦ per $1)'}
+          <div className="animate-fade-up stagger-3 card" style={{ padding: '1.25rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+              <label style={{ fontSize: 11, color: 'var(--muted)', fontFamily: 'var(--font-mono)', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+                {method === 'payoneer_naira' ? 'Payoneer rate' : 'Raenest rate'} (₦ per $1)
               </label>
-              <button
-                type="button"
-                onClick={fetchMarketRate}
-                disabled={rateLoading}
-                className="flex items-center gap-1 text-xs text-emerald-400 hover:text-emerald-300 disabled:opacity-50"
-              >
-                <RefreshCw size={12} className={rateLoading ? 'animate-spin' : ''} />
-                Market rate
+              <button type="button" onClick={fetchMarketRate} disabled={rateLoading}
+                style={{ fontSize: 11, color: 'var(--gold)', fontFamily: 'var(--font-body)', background: 'none', border: 'none', cursor: 'pointer', opacity: rateLoading ? 0.5 : 1 }}>
+                {rateLoading ? '…' : '↻ Market rate'}
               </button>
             </div>
-            <div className="flex items-center gap-2">
-              <span className="text-gray-400">₦</span>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+              <span style={{ fontFamily: 'var(--font-cormorant)', fontSize: 28, color: 'var(--muted)', fontWeight: 300 }}>₦</span>
               <input
-                type="number"
-                min="0"
-                step="0.01"
-                required
-                value={rate}
-                onChange={e => setRate(e.target.value)}
+                type="number" min="0" step="0.01" required
+                value={rate} onChange={e => setRate(e.target.value)}
                 placeholder="e.g. 1650"
-                className="flex-1 bg-transparent text-white text-2xl font-bold focus:outline-none placeholder-gray-600"
+                style={{ background: 'transparent', border: 'none', outline: 'none', fontFamily: 'var(--font-cormorant)',
+                  fontSize: 42, fontWeight: 300, color: 'var(--cream)', width: '100%', letterSpacing: '-0.01em' }}
               />
             </div>
             {marketRate && (
-              <p className="text-xs text-gray-500 mt-1">
-                Market rate: ₦{Math.round(marketRate).toLocaleString()} · Enter the rate you see in the app
+              <p style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--dimmed)', marginTop: 8 }}>
+                Market ref: ₦{Math.round(marketRate).toLocaleString()} · Enter the rate shown in your app
               </p>
             )}
           </div>
 
-          {/* Preview */}
+          {/* Live preview */}
           {preview && (
-            <div className="bg-gray-800 rounded-2xl p-4 space-y-3">
-              <h3 className="text-white font-semibold">Budget preview</h3>
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-400">Gross ({formatUsd(parsedIncome)} × ₦{parsedRate.toLocaleString()})</span>
-                <span className="text-white">{formatNgn(preview.gross_ngn)}</span>
-              </div>
-              {preview.fee_amount_ngn > 0 && (
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-400">Payoneer fee (4.5%)</span>
-                  <span className="text-red-400">− {formatNgn(preview.fee_amount_ngn)}</span>
+            <div className="animate-slide-down card" style={{ padding: '1.25rem' }}>
+              <p style={{ fontSize: 11, color: 'var(--muted)', fontFamily: 'var(--font-mono)', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 14 }}>
+                Budget preview
+              </p>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 14 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, fontFamily: 'var(--font-body)' }}>
+                  <span style={{ color: 'var(--muted)' }}>Gross ({formatUsd(parsedIncome)} × ₦{parsedRate.toLocaleString()})</span>
+                  <span style={{ color: 'var(--cream)', fontFamily: 'var(--font-mono)' }}>{formatNgn(preview.gross_ngn)}</span>
                 </div>
-              )}
-              <div className="flex justify-between text-sm font-semibold border-t border-gray-700 pt-2">
-                <span className="text-gray-300">Net income</span>
-                <span className="text-emerald-400">{formatNgn(preview.net_ngn)}</span>
+                {preview.fee_amount_ngn > 0 && (
+                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, fontFamily: 'var(--font-body)' }}>
+                    <span style={{ color: 'var(--muted)' }}>Payoneer fee (4.5%)</span>
+                    <span style={{ color: 'var(--err)', fontFamily: 'var(--font-mono)' }}>− {formatNgn(preview.fee_amount_ngn)}</span>
+                  </div>
+                )}
+                <div style={{ display: 'flex', justifyContent: 'space-between', borderTop: '1px solid var(--gold-border)', paddingTop: 8, fontSize: 14, fontWeight: 500 }}>
+                  <span style={{ color: 'var(--cream-dim)', fontFamily: 'var(--font-body)' }}>Net income</span>
+                  <span style={{ color: 'var(--gold)', fontFamily: 'var(--font-mono)' }}>{formatNgn(preview.net_ngn)}</span>
+                </div>
               </div>
-              <div className="grid grid-cols-2 gap-2 pt-1">
-                {([
-                  { label: 'Essentials 50%', amount: preview.essentials_ngn, color: 'text-blue-400' },
-                  { label: 'Growth 25%', amount: preview.growth_ngn, color: 'text-emerald-400' },
-                  { label: 'Stability 15%', amount: preview.stability_ngn, color: 'text-amber-400' },
-                  { label: 'Reward 10%', amount: preview.reward_ngn, color: 'text-purple-400' },
-                ] as { label: string; amount: number; color: string }[]).map(c => (
-                  <div key={c.label} className="bg-gray-700/50 rounded-xl p-3">
-                    <p className="text-gray-400 text-xs">{c.label}</p>
-                    <p className={`font-semibold text-sm mt-0.5 ${c.color}`}>{formatNgn(c.amount)}</p>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
+                {categories.map(c => (
+                  <div key={c.label} style={{ background: 'var(--bg-elevated)', borderRadius: '0.75rem', padding: '0.75rem',
+                    borderLeft: `3px solid ${c.color}` }}>
+                    <p style={{ fontSize: 10, color: 'var(--muted)', fontFamily: 'var(--font-body)', marginBottom: 2 }}>{c.label} · {c.pct}</p>
+                    <p style={{ fontFamily: 'var(--font-mono)', fontSize: 13, color: c.color, fontWeight: 500 }}>{formatNgn(c.amount)}</p>
                   </div>
                 ))}
               </div>
@@ -196,15 +185,16 @@ export default function NewBudgetPage() {
           )}
 
           {error && (
-            <p className="text-red-400 text-sm bg-red-900/20 border border-red-800 rounded-lg px-3 py-2">{error}</p>
+            <div style={{ background: 'rgba(176,80,80,0.1)', border: '1px solid rgba(176,80,80,0.3)',
+              borderRadius: '0.75rem', padding: '0.75rem 1rem', color: '#D08080', fontSize: 13, fontFamily: 'var(--font-body)' }}>
+              {error}
+            </div>
           )}
 
-          <button
-            type="submit"
-            disabled={saving || !parsedIncome || !parsedRate}
-            className="w-full bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 text-white font-semibold py-4 rounded-2xl transition-colors text-lg"
-          >
-            {saving ? 'Saving…' : 'Save Budget'}
+          <button type="submit" disabled={saving || !parsedIncome || !parsedRate}
+            className="btn-gold animate-fade-up stagger-5"
+            style={{ padding: '1rem', fontSize: 16, width: '100%' }}>
+            {saving ? 'Saving…' : 'Save this week\'s budget'}
           </button>
         </form>
       </div>
