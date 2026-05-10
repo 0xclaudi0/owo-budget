@@ -26,8 +26,10 @@ const outfit = Outfit({
 export const metadata: Metadata = {
   title: "Owo Budget",
   description: "Personal budget tracker — 50/25/15/10 rule",
-  manifest: "/manifest.json",
   appleWebApp: { capable: true, statusBarStyle: "black-translucent", title: "Owo" },
+  icons: {
+    apple: "/icons/icon-192.png",
+  },
 };
 
 export const viewport: Viewport = {
